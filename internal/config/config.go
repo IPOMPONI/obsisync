@@ -29,7 +29,7 @@ func CheckPath(flagPath string) (string, error) {
 		return flagPath, nil
 	}
 
-	if path := os.Getenv("CONFIG_PATH"); path != "" {
+	if path := os.Getenv("OBSISYNC_CONFIG_PATH"); path != "" {
 		return path, nil
 	}
 
