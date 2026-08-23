@@ -9,19 +9,19 @@ import (
 )
 
 type Server struct {
-	Host string `yaml:"host" env-required:"true"`
-	Port uint16 `yaml:"port" env-required:"true"`
+	Host string `yaml:"host"`
+	Port uint16 `yaml:"port"`
 }
 
 type Auth struct {
-	Username string `yaml:"username" env-required:"true"`
-	Password string `yaml:"password" env-required:"true"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 type Config struct {
 	Server Server            `yaml:"server"`
 	Auth   Auth              `yaml:"auth"`
-	Vaults map[string]string `yaml:"vaults" env-required:"true"`
+	Vaults map[string]string `yaml:"vaults"`
 }
 
 func CheckPath(flagPath string) (string, error) {
