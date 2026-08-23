@@ -24,7 +24,7 @@ type Config struct {
 	Vaults map[string]string `yaml:"vaults"`
 }
 
-func CheckPath(flagPath string) (string, error) {
+func ResolvePath(flagPath string) (string, error) {
 	if flagPath != "" {
 		return flagPath, nil
 	}
