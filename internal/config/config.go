@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,16 +43,44 @@ func ResolvePath(flagPath string) (string, error) {
 }
 
 func Load(path string) (*Config, error) {
-	file, err := os.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 
-	var cfg Config
-	err = yaml.Unmarshal(file, &cfg)
+	cfg := defaultConfig()
+	err = yaml.Unmarshal(data, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("yaml unmarshal: %w", err)
+		return nil, fmt.Errorf("yaml unmarshal %q: %w", path, err)
 	}
 
-	return &cfg, nil
+	err = cfg.validate()
+	if err != nil {
+		return nil, fmt.Errorf("validate config %q: %w", path, err)
+	}
+
+	return cfg, nil
+}
+
+func defaultConfig() *Config {
+	return &Config{Server: Server{Host: "0.0.0.0", Port: 8080}}
+}
+
+func (c *Config) validate() error {
+	errs := make([]error, 0, 4)
+
+	if c.Server.Port == 0 {
+		errs = append(errs, errors.New("server.port must not be 0"))
+	}
+	if c.Auth.Username == "" {
+		errs = append(errs, errors.New("auth.username must not be empty"))
+	}
+	if c.Auth.Password == "" {
+		errs = append(errs, errors.New("auth.password must not be empty"))
+	}
+	if len(c.Vaults) == 0 {
+		errs = append(errs, errors.New("vaults must have at least one value"))
+	}
+
+	return errors.Join(errs...)
 }
