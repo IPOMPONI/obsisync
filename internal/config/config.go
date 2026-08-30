@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -42,6 +43,22 @@ func ResolvePath(flagPath string) (string, error) {
 	return filepath.Join(configDir, "obsisync", "config.yaml"), nil
 }
 
+func (c *Config) resolveVaultPaths(configDir string) error {
+	for prefix, path := range c.Vaults {
+		if path == "~" || strings.HasPrefix(path, "~/") {
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				c.Vaults[prefix] = filepath.Join(homeDir, strings.TrimPrefix(path, "~"))
+			} else {
+				return fmt.Errorf("get user home dir: %w", err)
+			}
+		} else if !filepath.IsAbs(path) {
+			c.Vaults[prefix] = filepath.Join(configDir, path)
+		}
+	}
+
+	return nil
+}
+
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -57,6 +74,11 @@ func Load(path string) (*Config, error) {
 	err = cfg.validate()
 	if err != nil {
 		return nil, fmt.Errorf("validate config %q: %w", path, err)
+	}
+
+	err = cfg.resolveVaultPaths(filepath.Dir(path))
+	if err != nil {
+		return nil, fmt.Errorf("resolve vault paths: %w", err)
 	}
 
 	return cfg, nil
