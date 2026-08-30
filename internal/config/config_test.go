@@ -104,6 +104,21 @@ vaults:
   /personal: ./data/personal
 `
 
+const relativeVaultPathsDataYAML = `
+server:
+  host: "192.1.0.5"
+  port: 5324
+
+auth:
+  username: "obsidian"
+  password: "sync-secret"
+
+vaults:
+  /personal: ./data/personal
+  /work: ~/data/work
+  /shared: ../../Obsidian/data/shared
+`
+
 func writeConfig(t *testing.T, content string) string {
 	t.Helper()
 
@@ -114,7 +129,7 @@ func writeConfig(t *testing.T, content string) string {
 	return path
 }
 
-func checkLoadFieldsValid(t *testing.T, cfg *Config) {
+func checkLoadFieldsValid(t *testing.T, cfg *Config, configPath string) {
 	t.Helper()
 
 	t.Run("Server host", func(t *testing.T) {
@@ -141,21 +156,25 @@ func checkLoadFieldsValid(t *testing.T, cfg *Config) {
 		}
 	})
 
+	configDir := filepath.Dir(configPath)
 	t.Run("Vault /personal", func(t *testing.T) {
-		if cfg.Vaults["/personal"] != "./data/personal" {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/personal"], "./data/personal")
+		want := filepath.Join(configDir, "data/personal")
+		if cfg.Vaults["/personal"] != want {
+			t.Errorf("got: %q, want: %q", cfg.Vaults["/personal"], want)
 		}
 	})
 
 	t.Run("Vault /work", func(t *testing.T) {
-		if cfg.Vaults["/work"] != "./data/work" {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/work"], "./data/work")
+		want := filepath.Join(configDir, "data/work")
+		if cfg.Vaults["/work"] != want {
+			t.Errorf("got: %q, want: %q", cfg.Vaults["/work"], want)
 		}
 	})
 
 	t.Run("Vault /shared", func(t *testing.T) {
-		if cfg.Vaults["/shared"] != "./data/shared" {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/shared"], "./data/shared")
+		want := filepath.Join(configDir, "data/shared")
+		if cfg.Vaults["/shared"] != want {
+			t.Errorf("got: %q, want: %q", cfg.Vaults["/shared"], want)
 		}
 	})
 }
@@ -163,12 +182,13 @@ func checkLoadFieldsValid(t *testing.T, cfg *Config) {
 func TestLoadValid(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := Load(writeConfig(t, validDataYAML))
+	configPath := writeConfig(t, validDataYAML)
+	cfg, err := Load(configPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 
-	checkLoadFieldsValid(t, cfg)
+	checkLoadFieldsValid(t, cfg, configPath)
 }
 
 func checkDefaultServerFields(t *testing.T, cfg *Config) {
@@ -269,6 +289,50 @@ func TestLoadWrongType(t *testing.T) {
 	if err == nil {
 		t.Fatal("want unmarshal error, got nil")
 	}
+}
+
+func TestResolveVaultPaths(t *testing.T) {
+	t.Parallel()
+
+	configPath := writeConfig(t, relativeVaultPathsDataYAML)
+	cfg, _ := Load(configPath)
+
+	configDir := filepath.Dir(configPath)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("skipping home dir test: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		got      string
+		expected string
+	}{
+		{
+			name:     "Resolve vault path `/personal`",
+			got:      cfg.Vaults["/personal"],
+			expected: filepath.Join(filepath.Dir(configPath), "data/personal"),
+		},
+		{
+			name:     "Resolve vault path `/work`",
+			got:      cfg.Vaults["/work"],
+			expected: filepath.Join(homeDir, "data/work"),
+		},
+		{
+			name:     "Resolve vault path `/shared`",
+			got:      cfg.Vaults["/shared"],
+			expected: filepath.Join(configDir, "../../Obsidian/data/shared"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.expected {
+				t.Errorf("got: %q, want: %q", tt.got, tt.expected)
+			}
+		})
+	}
+
 }
 
 func TestResolvePath(t *testing.T) {
