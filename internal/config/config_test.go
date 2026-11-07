@@ -124,7 +124,7 @@ func writeConfig(t *testing.T, content string) string {
 
 	path := filepath.Join(t.TempDir(), "config_test.yaml")
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
+		t.Fatalf("WriteFile() error = %v", err)
 	}
 	return path
 }
@@ -132,60 +132,44 @@ func writeConfig(t *testing.T, content string) string {
 func checkLoadFieldsValid(t *testing.T, cfg *Config, configPath string) {
 	t.Helper()
 
-	t.Run("Server host", func(t *testing.T) {
-		if cfg.Server.Host != "192.1.0.5" {
-			t.Errorf("got: %q, want: %q", cfg.Server.Host, "192.1.0.5")
-		}
-	})
+	if cfg.Server.Host != "192.1.0.5" {
+		t.Errorf("Server.Host = %q, want %q", cfg.Server.Host, "192.1.0.5")
+	}
 
-	t.Run("Server port", func(t *testing.T) {
-		if cfg.Server.Port != 5324 {
-			t.Errorf("got: %d, want: %d", cfg.Server.Port, 5324)
-		}
-	})
+	if cfg.Server.Port != 5324 {
+		t.Errorf("Server.Port = %d, want %d", cfg.Server.Port, 5324)
+	}
 
-	t.Run("Auth username", func(t *testing.T) {
-		if cfg.Auth.Username != "obsidian" {
-			t.Errorf("got: %q, want: %q", cfg.Auth.Username, "obsidian")
-		}
-	})
+	if cfg.Auth.Username != "obsidian" {
+		t.Errorf("Auth.Username = %q, want %q", cfg.Auth.Username, "obsidian")
+	}
 
-	t.Run("Auth password", func(t *testing.T) {
-		if cfg.Auth.Password != "sync-secret" {
-			t.Errorf("got: %q, want: %q", cfg.Auth.Password, "sync-secret")
-		}
-	})
+	if cfg.Auth.Password != "sync-secret" {
+		t.Errorf("Auth.Password = %q, want %q", cfg.Auth.Password, "sync-secret")
+	}
 
 	configDir := filepath.Dir(configPath)
-	t.Run("Vault /personal", func(t *testing.T) {
-		want := filepath.Join(configDir, "data/personal")
-		if cfg.Vaults["/personal"] != want {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/personal"], want)
-		}
-	})
 
-	t.Run("Vault /work", func(t *testing.T) {
-		want := filepath.Join(configDir, "data/work")
-		if cfg.Vaults["/work"] != want {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/work"], want)
-		}
-	})
+	vaults := map[string]string{
+		"/personal": filepath.Join(configDir, "data/personal"),
+		"/work":     filepath.Join(configDir, "data/work"),
+		"/shared":   filepath.Join(configDir, "data/shared"),
+	}
 
-	t.Run("Vault /shared", func(t *testing.T) {
-		want := filepath.Join(configDir, "data/shared")
-		if cfg.Vaults["/shared"] != want {
-			t.Errorf("got: %q, want: %q", cfg.Vaults["/shared"], want)
+	for name, want := range vaults {
+		if cfg.Vaults[name] != want {
+			t.Errorf("Vaults[%q] = %q, want %q", name, cfg.Vaults[name], want)
 		}
-	})
+	}
 }
 
-func TestLoadValid(t *testing.T) {
+func TestLoad(t *testing.T) {
 	t.Parallel()
 
 	configPath := writeConfig(t, validDataYAML)
 	cfg, err := Load(configPath)
 	if err != nil {
-		t.Fatalf("load config: %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 
 	checkLoadFieldsValid(t, cfg, configPath)
@@ -194,17 +178,13 @@ func TestLoadValid(t *testing.T) {
 func checkDefaultServerFields(t *testing.T, cfg *Config) {
 	t.Helper()
 
-	t.Run("Server host", func(t *testing.T) {
-		if cfg.Server.Host != "0.0.0.0" {
-			t.Errorf("got: %q, want: %q", cfg.Server.Host, "0.0.0.0")
-		}
-	})
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Errorf("Server.Host = %q, want %q", cfg.Server.Host, "0.0.0.0")
+	}
 
-	t.Run("Server port", func(t *testing.T) {
-		if cfg.Server.Port != 8080 {
-			t.Errorf("got: %d, want: %d", cfg.Server.Port, 8080)
-		}
-	})
+	if cfg.Server.Port != 8080 {
+		t.Errorf("Server.Port = %d, want %d", cfg.Server.Port, 8080)
+	}
 }
 
 func TestLoadWithoutServer(t *testing.T) {
@@ -212,13 +192,13 @@ func TestLoadWithoutServer(t *testing.T) {
 
 	cfg, err := Load(writeConfig(t, dataWithoutServerYAML))
 	if err != nil {
-		t.Fatalf("load config: %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 
 	checkDefaultServerFields(t, cfg)
 }
 
-func TestLoadValidateErrs(t *testing.T) {
+func TestLoadValidation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -227,22 +207,22 @@ func TestLoadValidateErrs(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Zero server port",
+			name:     "zero server port",
 			data:     portZeroDataYAML,
 			expected: "server.port must not be 0",
 		},
 		{
-			name:     "Empty auth username",
+			name:     "empty auth username",
 			data:     emptyUsernameDataYAML,
 			expected: "auth.username must not be empty",
 		},
 		{
-			name:     "Empty auth password",
+			name:     "empty auth password",
 			data:     emptyPasswordDataYAML,
 			expected: "auth.password must not be empty",
 		},
 		{
-			name:     "Empty vaults",
+			name:     "empty vaults",
 			data:     emptyVaultsDataYAML,
 			expected: "vaults must have at least one value",
 		},
@@ -250,12 +230,15 @@ func TestLoadValidateErrs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := Load(writeConfig(t, tt.data))
 			if err == nil {
-				t.Fatalf("want error containing %q, got nil", tt.expected)
+				t.Fatalf("Load() error = nil, want error containing %q", tt.expected)
 			}
+
 			if !strings.Contains(err.Error(), tt.expected) {
-				t.Errorf("err = %v, want contains %q", err, tt.expected)
+				t.Errorf("Load() error = %v, want error containing %q", err, tt.expected)
 			}
 		})
 	}
@@ -266,7 +249,7 @@ func TestLoadWithoutFile(t *testing.T) {
 
 	_, err := Load(filepath.Join(t.TempDir(), "nope.yaml"))
 	if err == nil {
-		t.Fatal("want error for missing file, got nil")
+		t.Fatal("Load() error = nil, want error for missing file")
 	}
 }
 
@@ -275,10 +258,10 @@ func TestLoadBadYAML(t *testing.T) {
 
 	_, err := Load(writeConfig(t, badDataYAML))
 	if err == nil {
-		t.Fatal("want parse error, got nil")
+		t.Fatal("Load() error = nil, want parse error")
 	}
 	if !strings.Contains(err.Error(), "yaml") {
-		t.Errorf("err = %v, want yaml parse error", err)
+		t.Errorf("Load() error = %v, want yaml parse error", err)
 	}
 }
 
@@ -287,7 +270,7 @@ func TestLoadWrongType(t *testing.T) {
 
 	_, err := Load(writeConfig(t, wrongTypeDataYAML))
 	if err == nil {
-		t.Fatal("want unmarshal error, got nil")
+		t.Fatal("Load() error = nil, want unmarshal error")
 	}
 }
 
@@ -297,38 +280,42 @@ func TestResolveVaultPaths(t *testing.T) {
 	configPath := writeConfig(t, relativeVaultPathsDataYAML)
 	cfg, _ := Load(configPath)
 
-	configDir := filepath.Dir(configPath)
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("skipping home dir test: %v", err)
 	}
 
+	configDir := filepath.Dir(configPath)
+
 	tests := []struct {
 		name     string
-		got      string
+		vault    string
 		expected string
 	}{
 		{
-			name:     "Resolve vault path `/personal`",
-			got:      cfg.Vaults["/personal"],
-			expected: filepath.Join(filepath.Dir(configPath), "data/personal"),
+			name:     "resolve vault path `/personal`",
+			vault:    "/personal",
+			expected: filepath.Join(configDir, "data/personal"),
 		},
 		{
-			name:     "Resolve vault path `/work`",
-			got:      cfg.Vaults["/work"],
+			name:     "resolve vault path `/work`",
+			vault:    "/work",
 			expected: filepath.Join(homeDir, "data/work"),
 		},
 		{
-			name:     "Resolve vault path `/shared`",
-			got:      cfg.Vaults["/shared"],
+			name:     "resolve vault path `/shared`",
+			vault:    "/shared",
 			expected: filepath.Join(configDir, "../../Obsidian/data/shared"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.expected {
-				t.Errorf("got: %q, want: %q", tt.got, tt.expected)
+			t.Parallel()
+
+			got := cfg.Vaults[tt.vault]
+			if got != tt.expected {
+				t.Errorf("Vaults[%q] = %q, want %q", tt.vault, got, tt.expected)
 			}
 		})
 	}
@@ -340,8 +327,9 @@ func TestResolvePath(t *testing.T) {
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		t.Fatalf("get user config dir: %v", err)
+		t.Fatalf("UserConfigDir() error = %v", err)
 	}
+
 	defaultPath := filepath.Join(userConfigDir, "obsisync", "config.yaml")
 
 	tests := []struct {
@@ -351,19 +339,19 @@ func TestResolvePath(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Path in flag",
+			name:     "path from flag takes precedence",
 			path:     tempFilePath,
 			env:      "/env/config.yaml",
 			expected: tempFilePath,
 		},
 		{
-			name:     "Path in env",
+			name:     "path from environment variable",
 			path:     "",
 			env:      "/env/config.yaml",
 			expected: "/env/config.yaml",
 		},
 		{
-			name:     "Default path",
+			name:     "default path when no flag or env",
 			path:     "",
 			env:      "",
 			expected: defaultPath,
@@ -376,10 +364,10 @@ func TestResolvePath(t *testing.T) {
 
 			got, err := ResolvePath(tt.path)
 			if err != nil {
-				t.Fatalf("ResolvePath: %v", err)
+				t.Fatalf("ResolvePath(%q) error = %v", tt.path, err)
 			}
 			if got != tt.expected {
-				t.Errorf("got: %v, want: %v", got, tt.expected)
+				t.Errorf("ResolvePath(%q) = %q, want %q", tt.path, got, tt.expected)
 			}
 		})
 	}
