@@ -3,6 +3,7 @@ package startup
 import (
 	"fmt"
 	"obsisync/internal/config"
+	"os"
 	"strings"
 )
 
@@ -54,12 +55,20 @@ func buildBanner() string {
 }
 
 func PrintBanner() {
+	if !isTerminal() {
+		return
+	}
+
 	banner := buildBanner()
 	fmt.Printf("%s", banner)
 	printLine()
 }
 
 func PrintInfo(cfg config.Config) {
+	if !isTerminal() {
+		return
+	}
+
 	fmt.Printf("Server will use: %s:%d\n\nVaults:\n", cfg.Server.Host, cfg.Server.Port)
 	for vault := range cfg.Vaults {
 		fmt.Printf("\t%s\n", vault)
@@ -72,4 +81,13 @@ func printLine() {
 		fmt.Print("_")
 	}
 	fmt.Printf("\n\n")
+}
+
+func isTerminal() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
+	return fi.Mode()&os.ModeCharDevice != 0
 }
