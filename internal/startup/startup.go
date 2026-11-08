@@ -60,7 +60,7 @@ func PrintBanner() {
 }
 
 func PrintInfo(cfg config.Config) {
-	fmt.Printf("Server running on: %s:%d\n\nVaults:\n", cfg.Server.Host, cfg.Server.Port)
+	fmt.Printf("Server will use: %s:%d\n\nVaults:\n", cfg.Server.Host, cfg.Server.Port)
 	for vault := range cfg.Vaults {
 		fmt.Printf("\t%s\n", vault)
 	}
