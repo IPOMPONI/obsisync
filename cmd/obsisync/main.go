@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log/slog"
-	"net/http"
 	"obsisync/internal/config"
 	"obsisync/internal/server"
 	"obsisync/internal/startup"
