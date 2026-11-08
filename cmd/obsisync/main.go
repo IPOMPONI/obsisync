@@ -2,14 +2,22 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
+	"net/http"
 	"obsisync/internal/config"
 	"obsisync/internal/server"
 	"obsisync/internal/startup"
+	"os"
 )
 
 func main() {
 	startup.PrintBanner()
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelInfo,
+		AddSource: false,
+	}))
+	slog.SetDefault(logger)
 
 	var configPath string
 	flag.StringVar(&configPath, "config-path", "", "path to config file")
@@ -17,19 +25,22 @@ func main() {
 
 	configPath, err := config.ResolvePath(configPath)
 	if err != nil {
-		log.Fatalf("resolve path: %v", err)
+		slog.Error("failed resolve path", "error", err)
+		os.Exit(1)
 	}
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		slog.Error("failed load config", "error", err)
+		os.Exit(1)
 	}
 
 	startup.PrintInfo(*cfg)
 
 	sv := server.New(cfg)
-	err = sv.ListenAndServe()
-	if err != nil {
-		log.Fatalf("start server: %v", err)
+
+	if err := sv.ListenAndServe(); err != nil {
+		slog.Error("failed start server", "error", err)
+		os.Exit(1)
 	}
 }
